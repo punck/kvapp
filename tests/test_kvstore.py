@@ -38,7 +38,7 @@ def test_search_good_value():
 
     assert rv == (True, [{'key': 'key', 'value': 'value'}])
 
-    
+
 def test_search_bad_value():
     """
     Test search by value with non-existing prefix
