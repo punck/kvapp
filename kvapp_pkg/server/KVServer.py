@@ -3,6 +3,8 @@ import dbm
 import jwt
 from functools import wraps
 import datetime
+import os
+import signal
 
 
 class Config(object):
@@ -28,56 +30,7 @@ class KVServer:
 
         self._store = dbm.open(self._app.config['STORE_PATH'], 'c')
 
-    def _insert(self, key, value):
-        try:
-            self._store[key] = value
-
-        except dbm.error as e:
-            raise e
-
-    def _value_to_key(self, key):
-        ekey = key.encode('utf-8')
-
-        if ekey not in self._store.keys():
-            return False, None
-
-        return True, self._store[ekey].decode('utf-8')
-
-    def _key_to_value(self, prefix):
-
-        if not any(v.decode('utf-8').startswith(prefix) for v in self._store.values()):
-            return False, None
-
-        res = [{'key': k.decode('utf-8'), 'value': v.decode('utf-8')} for k, v in self._store.items() if v.decode('utf-8').startswith(prefix)]
-
-        return True, res
-
-    def _token_required(self, f):
-        @wraps(f)
-        def decorator(*args, **kwargs):
-
-            token = request.headers['x-access-tokens']  if 'x-access-tokens' in request.headers else None
-
-            if not token:
-                return jsonify({'message': 'token is missing'})
-
-            try:
-                data = jwt.decode(
-                    token,
-                    self._app.config['S3CR3T_K3Y'],
-                    'HS256')
-
-                current_user = data['user']
-            except:
-                return jsonify({'message': 'token is invalid'})
-
-            return f(current_user, *args, **kwargs)
-
-        return decorator
-
-    def start(self):
-
-        @self._app.route('/api/authorize', methods=['GET', 'POST'])
+        @self._app.route('/api/auth', methods=['GET', 'POST'])
         def authorize():
             token = jwt.encode(
                 {'user': 'punck', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
@@ -133,4 +86,55 @@ class KVServer:
             except dbm.error:
                 return make_response('', 500)
 
+    def get_app(self):
+        return self._app
+
+    def _insert(self, key, value):
+        try:
+            self._store[key] = value
+
+        except dbm.error as e:
+            raise e
+
+    def _value_to_key(self, key):
+        ekey = key.encode('utf-8')
+
+        if ekey not in self._store.keys():
+            return False, None
+
+        return True, self._store[ekey].decode('utf-8')
+
+    def _key_to_value(self, prefix):
+
+        if not any(v.decode('utf-8').startswith(prefix) for v in self._store.values()):
+            return False, None
+
+        res = [{'key': k.decode('utf-8'), 'value': v.decode('utf-8')} for k, v in self._store.items() if v.decode('utf-8').startswith(prefix)]
+
+        return True, res
+
+    def _token_required(self, f):
+        @wraps(f)
+        def decorator(*args, **kwargs):
+
+            token = request.headers['x-access-tokens']  if 'x-access-tokens' in request.headers else None
+
+            if not token:
+                return jsonify({'msg': 'token is missing'})
+
+            try:
+                data = jwt.decode(
+                    token,
+                    self._app.config['S3CR3T_K3Y'],
+                    'HS256')
+
+                current_user = data['user']
+            except:
+                return jsonify({'msg': 'token is invalid'})
+
+            return f(current_user, *args, **kwargs)
+
+        return decorator
+
+    def start(self):
         self._app.run()
