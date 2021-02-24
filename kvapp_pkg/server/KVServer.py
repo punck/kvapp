@@ -5,38 +5,28 @@ from functools import wraps
 import datetime
 
 
+class Config(object):
+    DEBUG = False
+    TESTING = False
+    STORE_PATH = 'kv_store'
+    S3CR3T_K3Y = 'chupachups'
+    # If not set and the request does not specify a CONTENT_LENGTH, no data will be read for security.
+    MAX_CONTENT_LENGTH = 1024 * 1024
+
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+
 class KVServer:
-    def __init__(self):
-        self._app = None
+    def __init__(self, **kwargs):
+        self._app = Flask(__name__)
+        self._app.config.from_object(DevelopmentConfig())
 
-        # implement kvstore
-        self._store = dbm.open('kv_store', 'c')
+        if 'path' in kwargs:
+            self._app.config['STORE_PATH'] = kwargs['path']
 
-    def _token_required(self, f):
-        @wraps(f)
-        def decorator(*args, **kwargs):
-
-            token = None
-
-            if 'x-access-tokens' in request.headers:
-                token = request.headers['x-access-tokens']
-
-            if not token:
-                return jsonify({'message': 'a valid token is missing'})
-
-            try:
-                data = jwt.decode(
-                    token,
-                    self._app.config['S3CR3T_KEY'],
-                    'HS256')
-
-                current_user = data['user']
-            except:
-                return jsonify({'message': 'token is invalid'})
-
-            return f(current_user, *args, **kwargs)
-
-        return decorator
+        self._store = dbm.open(self._app.config['STORE_PATH'], 'c')
 
     def _insert(self, key, value):
         try:
@@ -50,28 +40,57 @@ class KVServer:
 
         if ekey not in self._store.keys():
             return False, None
-        else:
-            return True, self._store[ekey].decode('utf-8')
 
-    def _key_to_value(self, value):
-        return True, ['keys']
+        return True, self._store[ekey].decode('utf-8')
+
+    def _key_to_value(self, prefix):
+
+        if not any(v.decode('utf-8').startswith(prefix) for v in self._store.values()):
+            return False, None
+
+        res = [{'key': k.decode('utf-8'), 'value': v.decode('utf-8')} for k, v in self._store.items() if v.decode('utf-8').startswith(prefix)]
+
+        return True, res
+
+    def _token_required(self, f):
+        @wraps(f)
+        def decorator(*args, **kwargs):
+
+            token = request.headers['x-access-tokens']  if 'x-access-tokens' in request.headers else None
+
+            if not token:
+                return jsonify({'message': 'token is missing'})
+
+            try:
+                data = jwt.decode(
+                    token,
+                    self._app.config['S3CR3T_K3Y'],
+                    'HS256')
+
+                current_user = data['user']
+            except:
+                return jsonify({'message': 'token is invalid'})
+
+            return f(current_user, *args, **kwargs)
+
+        return decorator
 
     def start(self):
-        self._app = Flask(__name__)
-        self._app.config['S3CR3T_KEY'] = 'chupachups'
 
-        @self._app.route('/login', methods=['GET', 'POST'])
-        def login():
+        @self._app.route('/api/authorize', methods=['GET', 'POST'])
+        def authorize():
             token = jwt.encode(
                 {'user': 'punck', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
-                self._app.config['S3CR3T_KEY'],
+                self._app.config['S3CR3T_K3Y'],
                 algorithm="HS256"
             )
             return jsonify({'token': token})
 
-        @self._app.route('/search', methods=['GET'])
+        @self._app.route('/api/search', methods=['GET'])
         @self._token_required
         def search(current_user):
+            if not len(request.json) == 1 or ('key' not in request.json and 'prefix' not in request.json):
+                return make_response(jsonify({'msg': 'undefined parameter settings'}), 400)
 
             if request.json.get('key'):
                 key = request.json.get('key')
@@ -83,26 +102,30 @@ class KVServer:
                 else:
                     return make_response('', 204)
 
-            if request.json.get('value'):
-                value = request.json.get('value')
+            if request.json.get('prefix'):
+                value = request.json.get('prefix')
 
                 # get keys from store
                 found, keys = self._key_to_value(value)
                 if found:
-                    return make_response(jsonify({'value': value, 'keys': keys}), 200)
+                    return make_response(jsonify({'prefix': value, 'result': keys}), 200)
                 else:
                     return make_response('', 204)
-
-                return make_response(jsonify(d), 200)
 
             # default msg
             return make_response(jsonify({'msg': 'undefined parameter settings'}), 400)
 
-        @self._app.route('/insert', methods=['POST'])
+        @self._app.route('/api/insert', methods=['POST'])
         @self._token_required
-        def insert():
+        def insert(current_user):
+
+            if not len(request.json) == 2 or 'key' not in request.json or 'value' not in request.json:
+                return make_response(jsonify({'msg': 'undefined parameter settings'}), 400)
+
             key = request.json.get('key')
             value = request.json.get('value')
+
+            # TODO: process value
 
             try:
                 self._insert(key, value)
