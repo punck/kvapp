@@ -1,4 +1,4 @@
-import kvapp_pkg.server.KVServer as kvs
+import kvapp_pkg.KVServer as kvs
 import pytest
 
 pytest.token = None
@@ -30,7 +30,7 @@ def test_insert_NOK_missing_token():
     with app.test_client() as test_client:
         response = test_client.post('/api/insert', json={'key': 'kulcs', 'value': 'érték'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -44,7 +44,7 @@ def test_insert_NOK_missing_token_2():
     with app.test_client() as test_client:
         response = test_client.post('/api/insert', json={'key': 'kulcs', 'value': 'érték'}, headers={'x-access-tokens': ''})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -58,7 +58,7 @@ def test_insert_NOK_invalid_token():
     with app.test_client() as test_client:
         response = test_client.post('/api/insert', json={'key': 'kulcs', 'value': 'érték'}, headers={'x-access-tokens': 'rossztok'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is invalid'
 
 
@@ -100,7 +100,7 @@ def test_search_by_key_NOK_missing_token():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'key': 'kulcs'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -114,7 +114,7 @@ def test_search_by_key_NOK_missing_token_2():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'key': 'kulcs'}, headers={'x-access-tokens': ''})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -128,7 +128,7 @@ def test_search_by_key_NOK_invalid_token():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'key': 'kulcs'}, headers={'x-access-tokens': 'rossztok'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is invalid'
 
 
@@ -186,7 +186,7 @@ def test_search_by_prefix_NOK_missing_token():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'prefix': 'ért'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -200,7 +200,7 @@ def test_search_by_prefix_NOK_missing_token_2():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'prefix': 'ért'}, headers={'x-access-tokens': ''})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is missing'
 
 
@@ -214,7 +214,7 @@ def test_search_by_prefix_NOK_invalid_token():
     with app.test_client() as test_client:
         response = test_client.get('/api/search', json={'prefix': 'ért'}, headers={'x-access-tokens': 'rossztok'})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert response.get_json()['msg'] == 'token is invalid'
 
 

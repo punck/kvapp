@@ -1,4 +1,4 @@
-import kvapp_pkg.server.KVServer as kvs
+import kvapp_pkg.KVServer as kvs
 
 
 def test_insert():
@@ -17,6 +17,7 @@ def test_search_good_key():
     server = kvs.KVServer()
     rv = server._value_to_key('key')
 
+    assert type(rv) == tuple
     assert rv == (True, 'value')
 
 def test_search_bad_key():
@@ -26,6 +27,7 @@ def test_search_bad_key():
     server = kvs.KVServer()
     rv = server._value_to_key('key2')
 
+    assert type(rv) == tuple
     assert rv == (False, None)
 
 
@@ -36,6 +38,7 @@ def test_search_good_value():
     server = kvs.KVServer()
     rv = server._key_to_value('val')
 
+    assert type(rv) == tuple
     assert rv == (True, [{'key': 'key', 'value': 'value'}])
 
 
@@ -46,6 +49,7 @@ def test_search_bad_value():
     server = kvs.KVServer()
     rv = server._key_to_value('val2')
 
+    assert type(rv) == tuple
     assert rv == (False, None)
 
 

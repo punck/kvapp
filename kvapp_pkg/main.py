@@ -1,4 +1,4 @@
-import kvapp_pkg.server.KVServer as kvs
+import kvapp_pkg.KVServer as kvs
 
 
 if __name__ == '__main__':

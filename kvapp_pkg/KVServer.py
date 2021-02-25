@@ -3,8 +3,6 @@ import dbm
 import jwt
 from functools import wraps
 import datetime
-import os
-import signal
 
 
 class Config(object):
@@ -14,10 +12,15 @@ class Config(object):
     S3CR3T_K3Y = 'chupachups'
     # If not set and the request does not specify a CONTENT_LENGTH, no data will be read for security.
     MAX_CONTENT_LENGTH = 1024 * 1024
+    HOST = 'host'
+    PORT = 55999
+
 
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    HOST = 'localhost'
+    PORT = 5000
 
 
 class KVServer:
@@ -30,7 +33,7 @@ class KVServer:
 
         self._store = dbm.open(self._app.config['STORE_PATH'], 'c')
 
-        @self._app.route('/api/auth', methods=['GET', 'POST'])
+        @self._app.route('/api/auth', methods=['GET'])
         def authorize():
             token = jwt.encode(
                 {'user': 'punck', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
@@ -120,7 +123,7 @@ class KVServer:
             token = request.headers['x-access-tokens']  if 'x-access-tokens' in request.headers else None
 
             if not token:
-                return jsonify({'msg': 'token is missing'})
+                return make_response(jsonify({'msg': 'token is missing'}), 400)
 
             try:
                 data = jwt.decode(
@@ -130,11 +133,14 @@ class KVServer:
 
                 current_user = data['user']
             except:
-                return jsonify({'msg': 'token is invalid'})
+                return make_response(jsonify({'msg': 'token is invalid'}), 400)
 
             return f(current_user, *args, **kwargs)
 
         return decorator
 
     def start(self):
-        self._app.run()
+        self._app.run(
+            host=self._app.config['HOST'],
+            port=self._app.config['PORT']
+        )
